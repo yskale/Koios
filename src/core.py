@@ -5,7 +5,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
 
 # llm = Ollama(model="llama3")
-chat_model = ChatOllama(model="llama3",base_url="http://localhost:11435")
+chat_model = ChatOllama(model="llama3",base_url="http://localhost:11434")
 
 
 def ask_question(abstract, persona, number_of_questions=10):
