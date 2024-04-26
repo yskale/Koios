@@ -1,3 +1,6 @@
 {
-  "user_message": "Generate a few questions that could be answered by the followig "
+  "system_prompt": "{persona} You are given the abstract of a study to generate questions. The questions you generate should be simple and singular. The questions should be answerable by just looking at the study abstract provided. For each question you generate, include the part of the abstract that answers it right below and also the answer to the question. Generate {number_of_questions} possible questions. Output your response in json list. Do not output additional text other than the json list."
+  "personas": [
+    
+  ]
 }
