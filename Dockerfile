@@ -33,7 +33,7 @@ ENV PATH=$HOME/.local/bin:$PATH
 RUN mkdir koios
 COPY --chown=$USER . koios/
 WORKDIR $HOME/koios
-ENV PYTHONPATH=$HOME/koios
+ENV PYTHONPATH=$HOME/koios/src
 RUN pip install -r requirements.txt
 ENTRYPOINT python src/server.py
 #ENTRYPOINT [ "uvicorn", "app:app", "--reload", "--port 8001" ]
