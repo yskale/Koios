@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from generation import ask_question  # Import the function from generation.py
+from logging_util import logger
 
 app = FastAPI()
 
@@ -28,10 +29,11 @@ async def ask(query: QueryRequest):
     - Sample question 3:?
     """
     try:
+        logger.info(f"QueryRequest: {query}")
         answer = ask_question(query.question)
         return QueryResponse(answer=answer)
     except Exception as e:
-        print(e)
+        logger.error(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 
 import requests
 import config
-
+from logging_util import logger
 
 
 def query_embed(user_query,ollama_emb):
