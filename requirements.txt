@@ -3,3 +3,4 @@ langchain-community
 fastapi
 requests
 qdrant-client
+langserve[all]
