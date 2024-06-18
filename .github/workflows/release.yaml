@@ -23,12 +23,6 @@ jobs:
               with:
                 images:
                     ghcr.io/${{ github.repository }}
-            - name: Extract metadata (tags, labels) for Docker
-              id: meta_clustered_image
-              uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-              with:
-                images:
-                    ghcr.io/${{ github.repository }}
             - name: Login to Container Registry
               uses: docker/login-action@v3
               with:
@@ -41,6 +35,6 @@ jobs:
               with:
                   context: .
                   push: true
-                  tags: ${{ steps.meta_base_image.outputs.tags }}
+                  tags: containers.renci.org/${{ github.repository }}:${{ steps.meta_base_image.outputs.tags }}
                   labels: ${{ steps.meta_base_image.outputs.labels }}
                   build-args: VERSION=${{ steps.get_version.outputs.VERSION }}
