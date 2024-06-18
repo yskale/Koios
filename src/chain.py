@@ -72,7 +72,7 @@ def init_chain():
     qachain = RetrievalQA.from_chain_type(ollama, retriever=doc_store.as_retriever(
         search_type="similarity_score_threshold",
         # I don't think this is working
-        search_kwargs={'score_threshold': 0.8, 'k': 3}
+        search_kwargs={'score_threshold': 0.6, 'k': 10}
     ), ).with_types(input_type=Question)
 
     return qachain
