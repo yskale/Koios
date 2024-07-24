@@ -36,9 +36,4 @@ WORKDIR $HOME/koios
 ENV PYTHONPATH=$HOME/koios/src
 RUN pip install -r requirements.txt
 ENTRYPOINT python src/server.py
-#ENTRYPOINT [ "uvicorn", "app:app", "--reload", "--port 8001" ]
-#RUN make install
-#RUN make install.koios
 
-# Run it
-#ENTRYPOINT dug
