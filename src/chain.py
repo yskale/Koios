@@ -115,7 +115,7 @@ def init_chain():
         base_url=config.OLLAMA_URL,
         model=config.GEN_MODEL_NAME
     )
-    # see https://smith.langchain.com/hub/langchaiochat-langchain-rephrase
+    # see https://smith.langchain.com/hub/langchain-ai/chat-langchain-rephrase
     rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
 
     search_query = RunnableBranch(
