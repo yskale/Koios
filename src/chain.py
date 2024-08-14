@@ -148,6 +148,8 @@ def init_chain():
 
     qachain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
+    qachain = config.configure_langfuse(qachain)
+
     return qachain
 
 add_routes(
