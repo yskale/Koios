@@ -18,6 +18,7 @@ from pydantic import Field, BaseModel
 from langchain_community.docstore.document import Document
 from langchain_community.llms import Ollama
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import PromptTemplate
 import json
 import fastapi
 from operator import itemgetter
@@ -116,7 +117,7 @@ def init_chain():
         model=config.GEN_MODEL_NAME
     )
     # see https://smith.langchain.com/hub/langchain-ai/chat-langchain-rephrase
-    rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
+    rephrase_prompt = PromptTemplate.from_template("Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.\n\nChat History:\n{chat_history}\nFollow Up Input: {input}\nStandalone Question:")
 
     search_query = RunnableBranch(
         # check history
