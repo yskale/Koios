@@ -8,7 +8,7 @@ QDRANT_URL = os.getenv('QDRANT_URL', 'http://localhost:6333').rstrip('/')
 GEN_MODEL_NAME = os.getenv("GEN_MODEL_NAME", "meta-llama/Meta-Llama-3.1-8B-Instruct")
 EMB_MODEL_NAME = os.getenv("EMB_MODEL_NAME", "Losspost/stella_en_1.5b_v5")
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "questions_on_study_abstract_stella")
-STUDIES_JSON_FILE = os.getenv("STUDIES_JSON_FILE", Path(os.path.dirname(__file__), '..',  'data', '99_select_studies.json'))
+STUDIES_JSON_FILE = os.getenv("STUDIES_JSON_FILE", Path(os.path.dirname(__file__), '..',  'data', '99_studies.json'))
 LOG_FILE_PATH = os.getenv("LOG_FILE_PATH", Path(os.path.dirname(__file__), '..' ,  'koios.log'))
 LANGFUSE_ENABLED = os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
 LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")

@@ -35,7 +35,7 @@ class Question(BaseModel):
 # RAG answer synthesis prompt
 template = """You are a professor at a prestigious university. You have performed a database lookup of study abstracts. 
 Your task is to answer the question provided based on the abstracts provided from your search, and add references to your answer. 
-Your answers should be factual. Do not suggest anything that is not in the database lookup.
+Your answers should be factual. Do not suggest anything that is not in the database lookup. 
 Answer the question based only on the following database lookup:
 <database lookup>
 {context}
@@ -82,7 +82,7 @@ class CustomQdrant(Qdrant):
             data = json.load(stream)
         for study in data:
             if study['StudyName'] == study_id:
-                return study['StudyName'] + '(' + study['Permalink'] + '): ' + '\n' + study['Description']
+                return study['StudyName'] + ' : ' + '\n' + study['Description']
         return ""
 
     @classmethod
