@@ -6,3 +6,7 @@ qdrant-client
 langserve[all]
 pydantic==1.10.13
 langchainhub
+langfuse
+openai
+tiktoken
+langchain-openai
