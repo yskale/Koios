@@ -23,6 +23,7 @@ import json
 import fastapi
 from operator import itemgetter
 from langserve import add_routes
+from bs4 import BeautifulSoup
 
 app = fastapi.FastAPI()
 
@@ -69,8 +70,10 @@ def _combine_documents(
 def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
     buffer = []
     for human, ai in chat_history:
-        buffer.append(HumanMessage(content=human))
-        buffer.append(AIMessage(content=ai))
+        soup = BeautifulSoup(human, features="html.parser")
+        buffer.append(HumanMessage(content=soup.get_text()))
+        soup = BeautifulSoup(ai, features="html.parser")
+        buffer.append(AIMessage(content=soup.get_text()))
     return buffer
 
 
