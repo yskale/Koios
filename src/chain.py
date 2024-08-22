@@ -34,14 +34,19 @@ class Question(BaseModel):
 
 
 # RAG answer synthesis prompt
-template = """You are a professor at a prestigious university. You have performed a database lookup of study abstracts. 
-Your task is to answer the question provided based on the abstracts provided from your search, and add references to your answer. 
-Your answers should be factual. Do not suggest anything that is not in the database lookup. 
-Answer the question based only on the following database lookup:
-<database lookup>
-{context}
-</database lookup>
+template = """You are a professor at a prestigious university. 
+You have information of about studies given to you as abstracts. 
+Your task is to answer a user question based on the abstracts. 
+Please include references using the provided abstracts in your answer. 
+Your answers should be factual. Do not suggest anything that is not in the abstract information. 
+If you can not find answer to the question please say there is not enough information to answer the question.
+Respond with just the answer to the question, don't tell the user what your did. 
+Don't INCLUDE the PHRASE "based on the provided abstracts."
+Answer the question based only on the following information:
 
+<study information>
+{context}
+</study information>
 """
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
