@@ -16,7 +16,7 @@ LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
 LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "")
 LLM_SERVER_TYPE = os.getenv("LLM_SERVER_TYPE", "VLLM")
 ollama_emb = OllamaEmbeddings(model=EMB_MODEL_NAME, base_url=EMBEDDING_URL)
-
+ollama_emb.query_instruction = ""
 
 QClient = QdrantClient(url=QDRANT_URL)
 AQClient = async_qdrant_client.AsyncQdrantClient(url=QDRANT_URL)
