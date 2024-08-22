@@ -41,7 +41,9 @@ Please include references using the provided abstracts in your answer.
 Your answers should be factual. Do not suggest anything that is not in the abstract information. 
 If you can not find answer to the question please say there is not enough information to answer the question.
 Respond with just the answer to the question, don't tell the user what your did. 
-Don't INCLUDE the PHRASE "based on the provided abstracts."
+Don't INCLUDE the PHRASE "based on the provided abstracts.
+Always include the study IDs in your answer.
+
 Answer the question based only on the following information:
 
 <study information>
