@@ -11,11 +11,11 @@ from langchain_core.prompts import (
     MessagesPlaceholder,
     format_document,
 )
-from langchain_core.prompts.prompt import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from typing import Any, List, Tuple
 from pydantic import Field, BaseModel
 from langchain_community.docstore.document import Document
+from langchain_openai import ChatOpenAI
 from langchain_community.llms import Ollama
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
@@ -23,9 +23,9 @@ import json
 import fastapi
 from operator import itemgetter
 from langserve import add_routes
-from langchain import hub
 
 app = fastapi.FastAPI()
+
 
 class Question(BaseModel):
     input: str
@@ -33,10 +33,15 @@ class Question(BaseModel):
 
 
 # RAG answer synthesis prompt
-template = """Answer the question based only on the following context:
-<context>
+template = """You are a professor at a prestigious university. You have performed a database lookup of study abstracts. 
+Your task is to answer the question provided based on the abstracts provided from your search, and add references to your answer. 
+Your answers should be factual. Do not suggest anything that is not in the database lookup.
+Answer the question based only on the following database lookup:
+<database lookup>
 {context}
-</context>"""
+</database lookup>
+
+"""
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", template),
@@ -52,7 +57,12 @@ DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(template="{page_content}"
 def _combine_documents(
     docs, document_prompt=DEFAULT_DOCUMENT_PROMPT, document_separator="\n\n"
 ):
-    doc_strings = [format_document(doc, document_prompt) for doc in docs]
+    docs_seen = []
+    doc_strings = []
+    for document in docs:
+        if document.metadata['study_id'] not in docs_seen:
+            doc_strings.append(format_document(document, document_prompt))
+            docs_seen.append(document.metadata['study_id'])
     return document_separator.join(doc_strings)
 
 
@@ -103,6 +113,7 @@ class CustomQdrant(Qdrant):
             metadata=metadata,
         )
 
+
 def init_chain():
     client = config.AQClient
     embeddings = config.ollama_emb
@@ -111,11 +122,20 @@ def init_chain():
         collection_name=config.QDRANT_COLLECTION_NAME,
         embeddings=embeddings,
         client=config.QClient
-    ).as_retriever()
-    llm = Ollama(
-        base_url=config.OLLAMA_URL,
-        model=config.GEN_MODEL_NAME
-    )
+    ).as_retriever(search_kwargs={'k': 20})
+    if config.LLM_SERVER_TYPE == "VLLM":
+        llm = ChatOpenAI(
+            api_key="EMPTY",
+            base_url=config.LLM_URL,
+            model=config.GEN_MODEL_NAME
+            )
+
+    elif config.LLM_SERVER_TYPE == "OLLAMA":
+        llm = Ollama(
+            base_url=config.LLM_URL,
+            model=config.GEN_MODEL_NAME
+        )
+
     # see https://smith.langchain.com/hub/langchain-ai/chat-langchain-rephrase
     rephrase_prompt = PromptTemplate.from_template("Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.\n\nChat History:\n{chat_history}\nFollow Up Input: {input}\nStandalone Question:")
 
