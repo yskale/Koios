@@ -35,7 +35,24 @@ class Question(BaseModel):
 
 # RAG answer synthesis prompt
 template = """You are a professor at a prestigious university. 
-You have information of about studies given to you as abstracts. 
+You have information of about studies given to you as abstracts in the following format.
+
+    Study name1 (study id1): 
+    study description 1
+
+    Study name2 (study id2):
+    study description 2
+     
+    ...
+
+for eg:
+
+    NHLBI TOPMed: Cleveland Clinic Atrial Fibrillation (CCAF) Study (phs001189): 
+    
+    The Cleveland Clinic Atrial Fibrillation Study consists of clinical and genetic data ....
+
+
+ 
 Your task is to answer a user question based on the abstracts. 
 Please include references using the provided abstracts in your answer. 
 Your answers should be factual. Do not suggest anything that is not in the abstract information. 
@@ -91,8 +108,8 @@ class CustomQdrant(Qdrant):
         with open(config.STUDIES_JSON_FILE) as stream:
             data = json.load(stream)
         for study in data:
-            if study['StudyName'] == study_id:
-                return study['StudyName'] + ' : ' + '\n' + study['Description']
+            if study['StudyId'] == study_id:
+                return f"{study['StudyName']} ({study['StudyId']}): \n {study['Description']}"
         return ""
 
     @classmethod
