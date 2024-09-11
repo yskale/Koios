@@ -113,6 +113,8 @@ async def retrieve_studies(concepts):
             df = await concept_details_kgx(concept)
             dfs.append(df)
         final_df = pd.concat(dfs, ignore_index=True)
+        if not len(final_df):
+            return ""
         df_summary = final_df.groupby('study_id').agg(
             concept_list=('concept_name', lambda x: ', '.join(x)),#.join(sorted(set(x)))),
             variable_desc_list=('variable_desc', lambda x: ', '.join(x)),
@@ -127,16 +129,18 @@ async def retrieve_studies(concepts):
 
         # Assuming get_study_data is defined as given
         def get_study_data(study_id):
-            with open(config.STUDIES_JSON_FILE) as stream:  # Replace with the path to your studies JSON file
-                data = json.load(stream)
-            for study in data:
-                if study['StudyId'].split('.')[0] == study_id.split('.')[0]:
-                    return {
-                        "study_name": study['StudyName'],
-                        "permalink": study['Permalink'],
-                        "description": study['Description'],
-                    }
-            return {"study_name": None, "permalink": None, "description": None}
+            if study_id != None:
+                with open(config.STUDIES_JSON_FILE) as stream:  # Replace with the path to your studies JSON file
+                    data = json.load(stream)
+                for study in data:
+                    if study['StudyId'].split('.')[0] == study_id.split('.')[0]:
+                        return {
+                            "study_name": study['StudyName'],
+                            "permalink": study['Permalink'],
+                            "description": study['Description'],
+                        }
+
+            return {"study_name": "", "permalink": "", "description": ""}
         df_summary[['study_name', 'permalink', 'description']] = df_summary['study_id'].apply(
             lambda x: pd.Series(get_study_data(x)))
 
@@ -175,8 +179,8 @@ async def retrieve_studies(concepts):
         ]
         return "\n".join(docs_str)
     
-    df_summary = await get_study_details(get_concept_identifier(concepts))
-    return df_summary
+    study_docs_str = await get_study_details(get_concept_identifier(concepts))
+    return study_docs_str
 
 
 # Initialize the chain for concept
@@ -196,24 +200,7 @@ def init_concept_chain():
     else:
         raise ValueError(f"Invalid LLM Server type {config.LLM_SERVER_TYPE}")
 
-    rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
-
     get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies)
-
-    search_query = RunnableBranch(
-        (
-            RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
-                run_name="HasChatHistoryCheck"
-            ),
-            RunnablePassthrough.assign(
-                chat_history=lambda x: _format_chat_history(x['chat_history'])
-            )
-            | rephrase_prompt
-            | llm
-            | StrOutputParser()
-        ),
-        RunnableLambda(itemgetter("input")),
-    )
 
     e_prompt_raw = config.langfuse.get_prompt("CONCEPT_EXTRACTION_PROMPT").prompt
     # extract concept
@@ -227,10 +214,12 @@ def init_concept_chain():
         {
             "input": lambda x: x["input"],
             "chat_history": lambda x: _format_chat_history(x["chat_history"]),
-            "con_context": search_query | extract_concepts | get_studies_and_variables,
+            "con_context": extract_concepts | get_studies_and_variables,
         }
     ).with_types(input_type=Question)
 
+
+    # @TODO maybe branch on _inputs , if its empty never call the llm
     qachain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
     qachain = config.configure_langfuse(qachain)
