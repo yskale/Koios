@@ -19,6 +19,7 @@ from langchain_openai import ChatOpenAI
 from langchain_community.llms import Ollama
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
+from langfuse import Langfuse
 import json
 import fastapi
 from operator import itemgetter
@@ -32,41 +33,17 @@ class Question(BaseModel):
     input: str
     chat_history: List[Tuple[str, str]] = Field(..., extra={"widget": {"type": "chat"}})
 
+# @TODO move this to config ...
+if config.LANGFUSE_ENABLED:
+    langfuse = Langfuse(secret_key=config.LANGFUSE_SECRET_KEY,
+                        public_key=config.LANGFUSE_PUBLIC_KEY,
+                        host=config.LANGFUSE_HOST)
+else:
+    langfuse = None
 
 # RAG answer synthesis prompt
-template = """You are a professor at a prestigious university. 
-You have information of about studies given to you as abstracts in the following format.
+template = langfuse.get_prompt('ANSWER_GENERATION_PROMPT').prompt
 
-    Study name1 (study id1): 
-    study description 1
-
-    Study name2 (study id2):
-    study description 2
-     
-    ...
-
-for eg:
-
-    NHLBI TOPMed: Cleveland Clinic Atrial Fibrillation (CCAF) Study (phs001189): 
-    
-    The Cleveland Clinic Atrial Fibrillation Study consists of clinical and genetic data ....
-
-
- 
-Your task is to answer a user question based on the abstracts. 
-Please include references using the provided abstracts in your answer. 
-Your answers should be factual. Do not suggest anything that is not in the abstract information. 
-If you can not find answer to the question please say there is not enough information to answer the question.
-Respond with just the answer to the question, don't tell the user what your did. 
-Don't INCLUDE the PHRASE "based on the provided abstracts.
-Always include the study IDs in your answer.
-
-Answer the question based only on the following information:
-
-<study information>
-{context}
-</study information>
-"""
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", template),
@@ -164,7 +141,8 @@ def init_chain():
         )
 
     # see https://smith.langchain.com/hub/langchain-ai/chat-langchain-rephrase
-    rephrase_prompt = PromptTemplate.from_template("Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.\n\nChat History:\n{chat_history}\nFollow Up Input: {input}\nStandalone Question:")
+    rephrase_template = langfuse.get_prompt("REPHRASE_PROMPT").prompt
+    rephrase_prompt = PromptTemplate.from_template(rephrase_template)
 
     search_query = RunnableBranch(
         # check history
