@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from typing import List, Tuple
-from pydantic import Field, BaseModel
+from pydantic.v1 import Field, BaseModel
+
 from langchain_core.runnables import (
     RunnableBranch,
     RunnableLambda,
@@ -44,6 +45,9 @@ app = FastAPI()
 class Question(BaseModel):
     input: str
     chat_history: List[Tuple[str, str]] = Field(..., extra={"widget": {"type": "chat"}})
+
+if config.langfuse is None:
+    raise ValueError("config.langfuse is not initialized")
 
 template = config.langfuse.get_prompt('ANSWER_GENERATION_PROMPT').prompt
 
@@ -90,7 +94,7 @@ async def retrieve_studies(concepts):
         data = result.result_set
         df = pd.DataFrame(data, columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
         df['study_id'] = df['study_id'].apply(lambda x: x.split('.')[0])
-    
+        
         return df
 
     def get_concept_identifier(concepts):
@@ -127,7 +131,7 @@ async def retrieve_studies(concepts):
             lambda x: ', '.join(set([vid.split('.')[0] for vid in x.split(', ')]))
         )
 
-        # Assuming get_study_data is defined as given
+      
         def get_study_data(study_id):
             if study_id != None:
                 with open(config.STUDIES_JSON_FILE) as stream:  # Replace with the path to your studies JSON file
@@ -179,7 +183,11 @@ async def retrieve_studies(concepts):
         ]
         return "\n".join(docs_str)
     
-    study_docs_str = await get_study_details(get_concept_identifier(concepts))
+    concept_ids = get_concept_identifier(concepts)
+    if not concept_ids:
+        return "No information available"  # Handle no biomedical concepts case
+
+    study_docs_str = await get_study_details(concept_ids)
     return study_docs_str
 
 
@@ -210,16 +218,21 @@ def init_concept_chain():
     )])
     extract_concepts = e_prompt | llm | StrOutputParser()
 
+    def process_if_non_empty(input_data):
+        if input_data["input"].strip():
+            return extract_concepts | get_studies_and_variables
+        return "No information available"  # Return message if no concept is extracted
+
     _inputs = RunnableParallel(
         {
             "input": lambda x: x["input"],
             "chat_history": lambda x: _format_chat_history(x["chat_history"]),
-            "con_context": extract_concepts | get_studies_and_variables,
+            "con_context": RunnableLambda(func=process_if_non_empty)
+
         }
     ).with_types(input_type=Question)
 
 
-    # @TODO maybe branch on _inputs , if its empty never call the llm
     qachain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
     qachain = config.configure_langfuse(qachain)
