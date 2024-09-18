@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from typing import List, Tuple
-from pydantic.v1 import Field, BaseModel
+from pydantic import Field, BaseModel
 
 from langchain_core.runnables import (
     RunnableBranch,
@@ -208,7 +208,7 @@ def init_concept_chain():
     else:
         raise ValueError(f"Invalid LLM Server type {config.LLM_SERVER_TYPE}")
 
-    get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies)
+    get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies, name="retrieve_studies_from_kg")
 
     e_prompt_raw = config.langfuse.get_prompt("CONCEPT_EXTRACTION_PROMPT").prompt
     # extract concept
@@ -227,13 +227,24 @@ def init_concept_chain():
         {
             "input": lambda x: x["input"],
             "chat_history": lambda x: _format_chat_history(x["chat_history"]),
-            "con_context": RunnableLambda(func=process_if_non_empty)
+            "con_context": RunnableLambda(func=process_if_non_empty, name="get_context")
 
         }
     ).with_types(input_type=Question)
 
+    answer_generation_chain = RunnableBranch(
+        # check history
+        (
+            RunnableLambda(lambda x: print(x) or bool(x.get("con_context"))).with_config(
+                run_name="has_context"
+            ),
+            _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+        ),
+        # no chat history , pass the whole question
+        RunnableLambda(lambda x: "No studies were found to answer the query."),
+    )
 
-    qachain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+    qachain = _inputs | answer_generation_chain
 
     qachain = config.configure_langfuse(qachain)
 
