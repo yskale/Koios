@@ -233,14 +233,14 @@ def init_concept_chain():
     ).with_types(input_type=Question)
 
     answer_generation_chain = RunnableBranch(
-        # check history
+        # check if we can get some studies from the graph.
         (
             RunnableLambda(lambda x: print(x) or bool(x.get("con_context"))).with_config(
                 run_name="has_context"
             ),
             _inputs | ANSWER_PROMPT | llm | StrOutputParser()
         ),
-        # no chat history , pass the whole question
+        # If no studies from the graph, and empty context respond with static text
         RunnableLambda(lambda x: "No studies were found to answer the query."),
     )
 
