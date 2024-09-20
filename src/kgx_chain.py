@@ -145,8 +145,15 @@ async def retrieve_studies(concepts):
                         }
 
             return {"study_name": "", "permalink": "", "description": ""}
+        
+        
         df_summary[['study_name', 'permalink', 'description']] = df_summary['study_id'].apply(
             lambda x: pd.Series(get_study_data(x)))
+        
+
+        # Filter out rows where study_name is empty (i.e., study not found in the JSON file)
+        df_summary = df_summary[df_summary['study_name'] != ""]
+
 
         # Concatenate the `variable_name`, `variable_id`, and `variable_desc`
         df_summary['variable_info'] = df_summary.apply(
