@@ -1,3 +1,5 @@
+import os
+
 import config
 from langchain_community.vectorstores import Qdrant
 from langchain_core.runnables import (
@@ -129,7 +131,7 @@ def init_chain():
     ).as_retriever(search_kwargs={'k': 20})
     if config.LLM_SERVER_TYPE == "VLLM":
         llm = ChatOpenAI(
-            api_key="EMPTY",
+            api_key=os.environ.get("OPENAI_KEY", "EMPTY"),
             base_url=config.LLM_URL,
             model=config.GEN_MODEL_NAME
             )
