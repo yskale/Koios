@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from typing import List, Tuple
 from pydantic import Field, BaseModel
-
+import os
 from langchain_core.runnables import (
     RunnableBranch,
     RunnableLambda,
@@ -21,15 +21,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langserve import add_routes
 
 import json
-from operator import itemgetter
 import config
-from langchain import hub
 import logging
 import requests
 import pandas as pd
 import redis
 from redis.commands.graph import Graph
-from langfuse import Langfuse
 
 
 logging.basicConfig(level=logging.INFO)
@@ -195,7 +192,7 @@ async def retrieve_studies(concepts):
 def init_concept_chain():
     if config.LLM_SERVER_TYPE == "VLLM":
         llm = ChatOpenAI(
-            api_key="EMPTY",
+            api_key=os.environ.get("OPENAI_KEY", "EMPTY"),
             base_url=config.LLM_URL,
             model=config.GEN_MODEL_NAME
         )
