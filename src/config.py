@@ -23,8 +23,6 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_GRAPH_NAME = os.getenv("REDIS_GRAPH_NAME", "")
 
-
-
 QClient = QdrantClient(url=QDRANT_URL)
 AQClient = async_qdrant_client.AsyncQdrantClient(url=QDRANT_URL)
 
