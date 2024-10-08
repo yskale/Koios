@@ -78,22 +78,7 @@ async def retrieve_studies(concepts):
 
     redis_graph = Graph(redis_client, config.REDIS_GRAPH_NAME)
 
-    async def concept_details_kgx(concept_id):
-        query = f"""
-            MATCH (c {{id: "{concept_id}"}})-[r1]->(v:`biolink.StudyVariable`)-[r2]->(s:`biolink.Study`)
-            RETURN c.name AS concept_name,v.name AS variable_name,v.id AS variable_id,v.description AS variable_desc, s.id AS study_id
-            LIMIT 50
-        """
-        print(query)
-        result = redis_graph.query(query, read_only=True)
-        if result.result_set is None:
-            return pd.DataFrame(columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
-        data = result.result_set
-        df = pd.DataFrame(data, columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
-        df['study_id'] = df['study_id'].apply(lambda x: x.split('.')[0])
-        
-        return df
-
+    #Get identifier for all concepts
     def get_concept_identifier(concepts):
         concept_mapping = {}
         for concept in concepts:
@@ -107,6 +92,23 @@ async def retrieve_studies(concepts):
             if response:
                 concept_mapping[concept] = response[0]['curie']
         return concept_mapping
+
+
+
+    async def concept_details_kgx(concept_id):
+        query = f"""
+            MATCH (c {{id: "{concept_id}"}})-[r1]->(v:`biolink.StudyVariable`)-[r2]->(s:`biolink.Study`)
+            RETURN c.name AS concept_name,v.name AS variable_name,v.id AS variable_id,v.description AS variable_desc, s.id AS study_id
+            LIMIT 100
+        """
+        result = redis_graph.query(query, read_only=True)
+        if result.result_set is None:
+            return pd.DataFrame(columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
+        data = result.result_set
+        df = pd.DataFrame(data, columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
+        df['study_id'] = df['study_id'].apply(lambda x: x.split('.')[0])  
+        return df
+
 
     async def get_study_details(concept_ids):
         dfs = []
@@ -142,14 +144,13 @@ async def retrieve_studies(concepts):
                         }
 
             return {"study_name": "", "permalink": "", "description": ""}
-        
-        
+
         df_summary[['study_name', 'permalink', 'description']] = df_summary['study_id'].apply(
             lambda x: pd.Series(get_study_data(x)))
-        
-
+        print(df_summary)
         # Filter out rows where study_name is empty (i.e., study not found in the JSON file)
         df_summary = df_summary[df_summary['study_name'] != ""]
+        print(df_summary)
 
 
         # Concatenate the `variable_name`, `variable_id`, and `variable_desc`
@@ -187,12 +188,15 @@ async def retrieve_studies(concepts):
         ]
         return "\n".join(docs_str)
     
+
+
     concept_ids = get_concept_identifier(concepts)
     if not concept_ids:
         return "No information available"  # Handle no biomedical concepts case
-
     study_docs_str = await get_study_details(concept_ids)
     return study_docs_str
+
+
 
 
 # Initialize the chain for concept
@@ -212,29 +216,33 @@ def init_concept_chain():
     else:
         raise ValueError(f"Invalid LLM Server type {config.LLM_SERVER_TYPE}")
 
-    get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies, name="retrieve_studies_from_kg")
 
-    e_prompt_raw = config.langfuse.get_prompt("CONCEPT_EXTRACTION_PROMPT").prompt
+
+    get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies, name="retrieve_studies_from_kg") 
+
+
     # extract concept
-    e_prompt = ChatPromptTemplate.from_messages([(
-        'system',
-        e_prompt_raw
-    )])
-    extract_concepts = e_prompt | llm | StrOutputParser()
+    concept_extraction_prompt = config.langfuse.get_prompt("CONCEPT_EXTRACTION_PROMPT").prompt
+    ce_prompt = ChatPromptTemplate.from_messages([('system',concept_extraction_prompt)])
+    extract_concepts = ce_prompt | llm | StrOutputParser()
+
 
     def process_if_non_empty(input_data):
         if input_data["input"].strip():
             return extract_concepts | get_studies_and_variables
         return "No information available"  # Return message if no concept is extracted
 
+
     _inputs = RunnableParallel(
         {
             "input": lambda x: x["input"],
-            "chat_history": lambda x: _format_chat_history(x["chat_history"]),
-            "con_context": RunnableLambda(func=process_if_non_empty, name="get_context")
+
+            "chat_history": lambda x: _format_chat_history(x['chat_history']),
+            "context": extract_concepts | get_studies_and_variables | StrOutputParser()
+
 
         }
-    ).with_types(input_type=Question)
+    )
 
     answer_generation_chain = RunnableBranch(
         # check if we can get some studies from the graph.
@@ -249,6 +257,8 @@ def init_concept_chain():
     )
 
     qachain = _inputs | answer_generation_chain
+
+    qachain = config.configure_langfuse(qachain)
 
     qachain = config.configure_langfuse(qachain)
 
