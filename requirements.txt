@@ -11,3 +11,5 @@ openai
 tiktoken
 beautifulsoup4
 langchain-openai
+redis
+pandas

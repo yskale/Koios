@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from typing import List, Tuple
-from pydantic.v1 import Field, BaseModel
-
+from pydantic import Field, BaseModel
+import os
 from langchain_core.runnables import (
     RunnableBranch,
     RunnableLambda,
@@ -21,15 +21,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langserve import add_routes
 
 import json
-from operator import itemgetter
 import config
-from langchain import hub
 import logging
 import requests
 import pandas as pd
 import redis
 from redis.commands.graph import Graph
-from langfuse import Langfuse
 
 
 logging.basicConfig(level=logging.INFO)
@@ -97,6 +94,7 @@ async def retrieve_studies(concepts):
         return concept_mapping
 
 
+
     async def concept_details_kgx(concept_id):
         query = f"""
             MATCH (c {{id: "{concept_id}"}})-[r1]->(v:`biolink.StudyVariable`)-[r2]->(s:`biolink.Study`)
@@ -108,8 +106,7 @@ async def retrieve_studies(concepts):
             return pd.DataFrame(columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
         data = result.result_set
         df = pd.DataFrame(data, columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
-        df['study_id'] = df['study_id'].apply(lambda x: x.split('.')[0])
-        
+        df['study_id'] = df['study_id'].apply(lambda x: x.split('.')[0])  
         return df
 
 
@@ -147,12 +144,14 @@ async def retrieve_studies(concepts):
                         }
 
             return {"study_name": "", "permalink": "", "description": ""}
+
         df_summary[['study_name', 'permalink', 'description']] = df_summary['study_id'].apply(
             lambda x: pd.Series(get_study_data(x)))
         print(df_summary)
         # Filter out rows where study_name is empty (i.e., study not found in the JSON file)
         df_summary = df_summary[df_summary['study_name'] != ""]
         print(df_summary)
+
 
         # Concatenate the `variable_name`, `variable_id`, and `variable_desc`
         df_summary['variable_info'] = df_summary.apply(
@@ -190,6 +189,7 @@ async def retrieve_studies(concepts):
         return "\n".join(docs_str)
     
 
+
     concept_ids = get_concept_identifier(concepts)
     if not concept_ids:
         return "No information available"  # Handle no biomedical concepts case
@@ -197,11 +197,13 @@ async def retrieve_studies(concepts):
     return study_docs_str
 
 
+
+
 # Initialize the chain for concept
 def init_concept_chain():
     if config.LLM_SERVER_TYPE == "VLLM":
         llm = ChatOpenAI(
-            api_key="EMPTY",
+            api_key=os.environ.get("OPENAI_KEY", "EMPTY"),
             base_url=config.LLM_URL,
             model=config.GEN_MODEL_NAME
         )
@@ -215,6 +217,7 @@ def init_concept_chain():
         raise ValueError(f"Invalid LLM Server type {config.LLM_SERVER_TYPE}")
 
 
+
     get_studies_and_variables = RunnableLambda(func=lambda x: x, afunc=retrieve_studies, name="retrieve_studies_from_kg") 
 
 
@@ -224,16 +227,38 @@ def init_concept_chain():
     extract_concepts = ce_prompt | llm | StrOutputParser()
 
 
+    def process_if_non_empty(input_data):
+        if input_data["input"].strip():
+            return extract_concepts | get_studies_and_variables
+        return "No information available"  # Return message if no concept is extracted
+
+
     _inputs = RunnableParallel(
         {
             "input": lambda x: x["input"],
+
             "chat_history": lambda x: _format_chat_history(x['chat_history']),
             "context": extract_concepts | get_studies_and_variables | StrOutputParser()
+
 
         }
     )
 
-    qachain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+    answer_generation_chain = RunnableBranch(
+        # check if we can get some studies from the graph.
+        (
+            RunnableLambda(lambda x: print(x) or bool(x.get("con_context"))).with_config(
+                run_name="has_context"
+            ),
+            _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+        ),
+        # If no studies from the graph, and empty context respond with static text
+        RunnableLambda(lambda x: "No studies were found to answer the query."),
+    )
+
+    qachain = _inputs | answer_generation_chain
+
+    qachain = config.configure_langfuse(qachain)
 
     qachain = config.configure_langfuse(qachain)
 
