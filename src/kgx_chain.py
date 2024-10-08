@@ -247,7 +247,7 @@ def init_concept_chain():
     answer_generation_chain = RunnableBranch(
         # check if we can get some studies from the graph.
         (
-            RunnableLambda(lambda x: print(x) or bool(x.get("con_context"))).with_config(
+            RunnableLambda(lambda x: print(x) or bool(x.get("context"))).with_config(
                 run_name="has_context"
             ),
             _inputs | ANSWER_PROMPT | llm | StrOutputParser()
