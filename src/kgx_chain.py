@@ -80,6 +80,7 @@ async def retrieve_studies(concepts):
 
     #Get identifier for all concepts
     def get_concept_identifier(concepts):
+        print(concepts)
         concept_mapping = {}
         for concept in concepts:
             url = "https://sap-qdrant.apps.renci.org/annotate/"
@@ -101,6 +102,7 @@ async def retrieve_studies(concepts):
             RETURN c.name AS concept_name,v.name AS variable_name,v.id AS variable_id,v.description AS variable_desc, s.id AS study_id
             LIMIT 100
         """
+        print(query)
         result = redis_graph.query(query, read_only=True)
         if result.result_set is None:
             return pd.DataFrame(columns=['concept_name', 'variable_name','variable_id','variable_desc','study_id'])
@@ -147,7 +149,6 @@ async def retrieve_studies(concepts):
 
         df_summary[['study_name', 'permalink', 'description']] = df_summary['study_id'].apply(
             lambda x: pd.Series(get_study_data(x)))
-        print(df_summary)
         # Filter out rows where study_name is empty (i.e., study not found in the JSON file)
         df_summary = df_summary[df_summary['study_name'] != ""]
         print(df_summary)
@@ -227,12 +228,6 @@ def init_concept_chain():
     extract_concepts = ce_prompt | llm | StrOutputParser()
 
 
-    def process_if_non_empty(input_data):
-        if input_data["input"].strip():
-            return extract_concepts | get_studies_and_variables
-        return "No information available"  # Return message if no concept is extracted
-
-
     _inputs = RunnableParallel(
         {
             "input": lambda x: x["input"],
@@ -250,15 +245,13 @@ def init_concept_chain():
             RunnableLambda(lambda x: print(x) or bool(x.get("context"))).with_config(
                 run_name="has_context"
             ),
-            _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+            ANSWER_PROMPT | llm | StrOutputParser()
         ),
         # If no studies from the graph, and empty context respond with static text
         RunnableLambda(lambda x: "No studies were found to answer the query."),
     )
 
     qachain = _inputs | answer_generation_chain
-
-    qachain = config.configure_langfuse(qachain)
 
     qachain = config.configure_langfuse(qachain)
 
